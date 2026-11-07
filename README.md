@@ -1,21 +1,21 @@
 # Bil Bond
 
-Bil Bond adalah dashboard accountability untuk pekerjaan AI dan agent yang menggunakan escrow, provider bond, verifikasi auditor, human-in-the-loop Guardian, appeal governance, dan audit trail pada NEAR Testnet.
+Bil Bond is an accountability dashboard for AI and agent work. It combines escrow, provider bonds, auditor verification, human-in-the-loop Guardian review, governance appeals, and on-chain audit trails on NEAR Testnet.
 
-Sistem ini mengubah pekerjaan agent dari sekadar kepercayaan pada output menjadi alur kerja dengan jaminan ekonomi, aturan settlement yang dapat diverifikasi, dan proses sengketa yang dapat diaudit.
+The system turns agent work from a simple trust-based interaction into a workflow with economic guarantees, verifiable settlement rules, and an auditable dispute process.
 
-## Fitur utama
+## Key features
 
-- **Provider bond** — provider menyetor jaminan ekonomi sebelum menawarkan layanan.
-- **Escrow** — dana buyer ditahan oleh smart contract sampai pekerjaan diverifikasi.
-- **Deterministic verification** — auditor mengevaluasi hasil berdasarkan SLA dan verification criteria.
-- **Guardian queue** — keputusan berisiko membutuhkan human approval; AI tidak dapat melakukan slash sendirian.
-- **Appeal dan governance** — provider dapat mengajukan banding dalam appeal window.
-- **On-chain auditability** — order, role, policy, state transition, dan audit event dapat dibaca dari contract.
-- **Wallet authorization** — transaksi live harus ditandatangani wallet `.testnet` dengan role yang sesuai.
-- **Network safety** — aplikasi membatasi konfigurasi ke NEAR Testnet dan menangani timeout RPC.
+- **Provider bonds** — providers deposit an economic commitment before offering a service.
+- **Escrow** — buyer funds are held by the smart contract until the work is verified.
+- **Deterministic verification** — auditors evaluate work against the agreed SLA and verification criteria.
+- **Guardian queue** — high-risk decisions require human approval; AI cannot slash funds on its own.
+- **Appeals and governance** — providers can appeal during the configured appeal window.
+- **On-chain auditability** — orders, roles, policy, state transitions, and audit events can be read from the contract.
+- **Wallet authorization** — live transactions must be signed by the appropriate `.testnet` wallet.
+- **Network safety** — the application is restricted to NEAR Testnet and handles RPC timeouts.
 
-## Alur singkat
+## High-level flow
 
 ```text
 Provider registration
@@ -42,10 +42,10 @@ Buyer locks escrow ──► Provider submits work
                  Release / Refund / Slash
                            │
                            ▼
-                    Audit events on-chain
+                    On-chain audit events
 ```
 
-## Contract Testnet
+## Testnet contract
 
 - **Network:** NEAR Testnet
 - **Contract:** [`newbilbondcotract.testnet`](https://testnet.nearblocks.io/address/newbilbondcotract.testnet)
@@ -53,53 +53,53 @@ Buyer locks escrow ──► Provider submits work
   - Auditor: `laterice4929.testnet`
   - Guardian: `majormeat1805.testnet`
   - Governance: `governance-bilbond.testnet`
-- **Dashboard:** `http://localhost:3000/` saat dijalankan secara lokal
-- **NEAR Intents:** simulated/unavailable on Testnet pada konfigurasi ini
+- **Local dashboard:** `http://localhost:3000/` or the port printed by the dev server
+- **NEAR Intents:** simulated/unavailable on this Testnet configuration
 
-Semua nilai dan transaksi di atas bersifat publik di Testnet. Jangan memasukkan seed phrase atau private key ke file proyek.
+All values and transactions above are public on Testnet. Never put a seed phrase or private key in the project.
 
 ## Quick start
 
-### Prasyarat
+### Prerequisites
 
 - Node.js `>=20.19`
-- `pnpm` `12.3.4` atau kompatibel
-- Browser Chrome atau Brave
-- Wallet NEAR yang mendukung Testnet, misalnya Meteor atau Nightly
-- Akun NEAR Testnet untuk transaksi yang ingin ditandatangani
+- `pnpm` `12.3.4` or a compatible version
+- Chrome or Brave
+- A NEAR wallet that supports Testnet, such as Meteor or Nightly
+- A NEAR Testnet account for transactions you want to sign
 
-### Instalasi
+### Install
 
 ```bash
 pnpm install
 cp .env.example .env
 ```
 
-Pastikan `.env` menunjuk ke contract yang benar:
+Make sure `.env` points to the active contract:
 
 ```env
 PORT=3000
 VITE_BIL_BOND_CONTRACT_ID=newbilbondcotract.testnet
 ```
 
-`DATABASE_URL` disediakan oleh runtime Manus atau environment lokal yang memiliki database. Jangan menyimpan secret wallet di `.env`.
+`DATABASE_URL` is supplied by the Manus runtime or by a local environment with a database. Never store wallet secrets in `.env`.
 
-### Menjalankan dashboard
+### Run the dashboard
 
 ```bash
 pnpm dev
 ```
 
-Buka [http://localhost:3000/](http://localhost:3000/). Pertahankan port yang sama karena wallet selector menyimpan koneksi berdasarkan origin.
+Open [http://localhost:3000/](http://localhost:3000/). Keep the same port because wallet selector sessions are origin-specific.
 
-Untuk persistence lokal, gunakan migration dan seed sesuai environment database:
+For local persistence, run migrations and seed data when a database is configured:
 
 ```bash
 pnpm db:migrate
 pnpm db:seed
 ```
 
-### Validasi proyek
+### Validate the project
 
 ```bash
 pnpm typecheck
@@ -107,9 +107,9 @@ pnpm test
 pnpm build
 ```
 
-Test suite mencakup state transition, verifikasi, contract mapping, RPC timeout, dan otorisasi Guardian.
+The test suite covers state transitions, verification, contract mapping, RPC timeout handling, and Guardian authorization.
 
-## Arsitektur singkat
+## Architecture at a glance
 
 ```text
 React dashboard
@@ -125,40 +125,40 @@ Express API + Drizzle
 
 Bond Vault contract (Rust / near-sdk)
   ├─ Provider, offer, bond, and escrow state
-  ├─ Auditor, Guardian, Governance authorization
+  ├─ Auditor, Guardian, and Governance authorization
   ├─ Appeal and settlement state machine
   └─ Append-only audit events
 ```
 
-Pada mode live, smart contract adalah sumber kebenaran untuk authorization dan state. Role switching yang terlihat di dashboard hanya berlaku untuk demo dan bukan production authorization.
+In live mode, the smart contract is the source of truth for authorization and state. The role switcher shown in the dashboard is for demo/offline mode only and is not production authorization.
 
-## Dokumentasi detail
+## Detailed documentation
 
-Penjelasan mekanisme dan operasi tersedia di [`docs/bil-bond-accountability.md`](docs/bil-bond-accountability.md), termasuk:
+See [`docs/bil-bond-accountability.md`](docs/bil-bond-accountability.md) for:
 
-- escrow dan provider bond,
-- slashing dan distribusi settlement,
-- peran Guardian,
-- appeal `upheld` dan `overturned`,
-- onboarding provider/agent,
-- `get_roles()` dan wallet authorization,
-- state transition serta audit event,
-- troubleshooting Testnet.
+- escrow and provider bonds,
+- slashing and settlement distribution,
+- the Guardian role,
+- `upheld` and `overturned` appeals,
+- provider/agent onboarding,
+- `get_roles()` and wallet authorization,
+- state transitions and audit events,
+- Testnet operations and troubleshooting.
 
-## Status appeal pada Testnet
+## Appeal status on Testnet
 
-Dashboard tidak menggunakan legacy boolean `appeal_resolved` sebagai satu-satunya sumber status. Status appeal diturunkan dari order state dan audit event menjadi:
+The dashboard does not use the legacy `appeal_resolved` boolean as its only source of truth. Appeal status is derived from order state and audit events:
 
 ```text
 none | pending | upheld | overturned
 ```
 
-`appeal_overturned` berarti governance membatalkan failed verdict. Pada alur contract yang diuji, escrow buyer direfund dan tidak terjadi provider slash. Detail kompatibilitas historical state dijelaskan di [panduan accountability](docs/bil-bond-accountability.md).
+`appeal_overturned` means governance cancelled the failed verdict. In the tested contract flow, the buyer escrow is refunded and the provider is not slashed. Historical-state compatibility is explained in the [accountability guide](docs/bil-bond-accountability.md).
 
-## Catatan keamanan
+## Security notes
 
-- Gunakan hanya akun Testnet untuk environment ini.
-- Jangan membagikan seed phrase atau private key.
-- Pemilihan role pada UI tidak memberikan hak on-chain.
-- Otorisasi final dilakukan oleh `env::predecessor_account_id()` di smart contract.
-- Semua transaksi Testnet dan nilai bond/escrow dapat dilihat publik.
+- Use Testnet accounts only in this environment.
+- Never share a seed phrase or private key.
+- Selecting a role in the UI does not grant on-chain permission.
+- Final authorization is enforced by `env::predecessor_account_id()` in the smart contract.
+- Testnet transactions and bond/escrow values are publicly inspectable.

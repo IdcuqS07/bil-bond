@@ -1,48 +1,48 @@
 # Bil Bond Accountability, Dispute Resolution, and Provider Guide
 
-Dokumen ini menjelaskan cara kerja Bil Bond secara lebih rinci. Bil Bond adalah sistem accountability untuk pekerjaan AI/agent: provider memberikan bond, buyer mengunci pembayaran dalam escrow, auditor memeriksa hasil, Guardian melakukan human review, dan governance menyelesaikan appeal.
+This document explains how Bil Bond works in detail. Bil Bond is an accountability system for AI and agent work: providers deposit a bond, buyers lock payment in escrow, auditors evaluate the result, Guardians perform human review, and governance resolves appeals.
 
-> **Environment:** dokumen ini mengacu pada implementasi NEAR Testnet dengan contract `newbilbondcotract.testnet`. Ini bukan spesifikasi untuk mainnet dan bukan nasihat keuangan.
+> **Environment:** This guide describes the NEAR Testnet deployment using `newbilbondcotract.testnet`. It is not a mainnet specification and is not financial advice.
 
-## 1. Model kepercayaan Bil Bond
+## 1. Bil Bond's trust model
 
-Bil Bond menggunakan tiga lapisan perlindungan:
+Bil Bond uses three layers of protection:
 
-1. **Economic commitment:** provider mengunci bond yang dapat berisiko jika kewajiban tidak dipenuhi.
-2. **Procedural verification:** auditor menilai pekerjaan berdasarkan kriteria yang disepakati sebelum order dibuat.
-3. **Human and governance oversight:** kasus yang memerlukan tindakan ekonomi tidak diselesaikan sepenuhnya oleh AI; Guardian dan, bila diperlukan, governance ikut memutuskan.
+1. **Economic commitment:** the provider locks a bond that can be put at risk if obligations are not met.
+2. **Procedural verification:** an auditor evaluates the work against criteria agreed before the order is created.
+3. **Human and governance oversight:** economically significant cases are not resolved entirely by AI; a Guardian and, when required, governance participate in the decision.
 
-Smart contract menjadi sumber kebenaran untuk saldo, status order, role, approval, dan settlement. Dashboard hanya membaca state, mengirim transaksi yang ditandatangani wallet, dan memberikan guard UX.
+The smart contract is the source of truth for balances, order status, roles, approvals, and settlement. The dashboard reads state, submits wallet-signed transactions, and provides UX guards.
 
-## 2. Komponen utama
+## 2. Main components
 
 ### Buyer
 
-Buyer memilih offer, mengirim dana melalui `lock_escrow`, dan menerima hasil settlement. Buyer tidak langsung mengirim pembayaran kepada provider sebelum proses verifikasi selesai.
+The buyer selects an offer, locks funds through `lock_escrow`, and receives the final settlement. The buyer does not pay the provider directly before verification is complete.
 
-### Provider atau agent
+### Provider or agent
 
-Provider adalah akun NEAR yang mendaftarkan diri, menyetor bond, dan menerbitkan offer. Dalam konteks Bil Bond, agent dapat menggunakan wallet yang bertindak sebagai provider.
+A provider is a NEAR account that registers, deposits a bond, and publishes an offer. In Bil Bond, an agent can use a wallet that acts as the provider account.
 
 ### Auditor
 
-Auditor mencatat verdict terhadap pekerjaan: passed/failed, confidence, reasons, dan evidence. Auditor tidak boleh menjadi satu-satunya pihak yang memindahkan dana pada kasus yang memerlukan review manusia.
+The auditor records a verdict for the work: passed/failed, confidence, reasons, and evidence. The auditor should not be the only party able to move funds in a case that requires human review.
 
 ### Guardian
 
-Guardian memeriksa failed verdict dan bukti sebelum jalur slash atau escalation dapat dilanjutkan. Guardian adalah human-in-the-loop, bukan role visual yang dapat diperoleh hanya dengan memilih dropdown.
+The Guardian reviews a failed verdict and its evidence before a slash or escalation path can continue. Guardian is a human-in-the-loop role, not a visual role that can be obtained by selecting a dropdown.
 
 ### Governance
 
-Governance menyelesaikan appeal provider. Governance dapat mempertahankan slash atau membatalkan failed verdict sesuai aturan contract dan evidence.
+Governance resolves provider appeals. Governance can uphold the slash or overturn the failed verdict according to the contract rules and evidence.
 
 ### Bond Vault contract
 
-Contract Rust menyimpan provider, offer, order, reserved bond, approval, policy, insurance pool, auditor reward/penalty, dan audit event.
+The Rust contract stores providers, offers, orders, reserved bonds, approvals, policy, the insurance pool, auditor rewards/penalties, and audit events.
 
-## 3. State machine order
+## 3. Order state machine
 
-Status order yang dipakai contract:
+The contract uses these order statuses:
 
 ```text
 EscrowLocked
@@ -58,71 +58,71 @@ VerdictRecorded
                                                         └─ overturned ─► Refunded
 ```
 
-Contract juga memiliki `GuardianRejected` untuk jalur ketika keputusan Guardian tidak menyetujui approval yang dibutuhkan.
+The contract also has `GuardianRejected` for a path where the required Guardian approval is not granted.
 
-### Mengapa state guard penting?
+### Why state guards matter
 
-Setiap method transaksi hanya menerima status yang sesuai. Ini mencegah:
+Each transaction method accepts only the appropriate order state. This prevents:
 
-- appeal kedua pada order yang sudah memiliki appeal aktif,
-- resolusi governance sebelum provider mengajukan appeal,
-- finalisasi failure ketika appeal window masih terbuka,
-- settlement ulang setelah order sudah terminal.
+- a second appeal on an order that already has an active appeal,
+- governance resolution before a provider submits an appeal,
+- failure finalization while the appeal window is still open,
+- and repeated settlement after an order reaches a terminal state.
 
-Transaksi NEAR diproses secara serial pada account contract. State mutation dan audit event berada dalam transaksi yang sama sehingga transaksi yang gagal tidak meninggalkan event setengah jadi.
+NEAR transactions are serialized at the contract account. State mutations and audit events are part of the same transaction, so a failed transaction does not leave a partial event behind.
 
-## 4. Escrow dan provider bond
+## 4. Escrow and provider bonds
 
-### Provider onboarding state
+### Provider bond state
 
-Provider memiliki field penting:
+A provider has important fields including:
 
-- `bond` — total bond provider,
-- `reserved_bond` — bagian bond yang dicadangkan untuk order aktif,
-- `available_bond` — bond yang masih tersedia,
-- `reputation`, `successful_orders`, dan `slashed_orders`.
+- `bond` — the provider's total bond,
+- `reserved_bond` — the portion reserved for active orders,
+- `available_bond` — the bond still available,
+- `reputation`, `successful_orders`, and `slashed_orders`.
 
-Ketika order dikunci, contract menghitung dan mencadangkan bagian bond yang relevan. Bond yang reserved tidak boleh digunakan seolah-olah masih bebas untuk order lain.
+When an order is locked, the contract calculates and reserves the relevant bond amount. Reserved bond cannot be reused as if it were available for another order.
 
 ### Escrow
 
-Buyer membuat escrow melalui offer aktif dan specification. Order menyimpan:
+The buyer creates an escrow through an active offer and a specification. The order stores:
 
-- provider dan buyer,
-- amount escrow,
+- provider and buyer,
+- escrow amount,
 - verification criteria,
 - SLA duration,
-- profile demo/production,
-- dan state order.
+- demo/production profile,
+- and order state.
 
-Escrow tetap berada di contract sampai salah satu jalur settlement yang valid tercapai.
+Escrow remains in the contract until a valid settlement path is reached.
 
-## 5. Mekanisme slashing
+## 5. How slashing works
 
-Slashing adalah pengurangan bond provider ketika failed work telah memenuhi syarat contract untuk settlement.
+Slashing reduces a provider's bond when a failed-work decision has satisfied the contract requirements for settlement.
 
-### Tahapan slashing
+### Slashing steps
 
-1. Provider sudah terdaftar dan memiliki bond.
-2. Buyer mengunci escrow.
-3. Provider mengirim hasil melalui `submit_work`.
-4. Auditor menjalankan evaluasi dan memanggil `record_verdict`.
-5. Failed verdict menempatkan order ke jalur review.
-6. Guardian memanggil `guardian_decide`.
-7. Appeal window dibuka jika jalur tersebut memenuhi policy.
-8. Jika appeal tidak ada atau governance meng-uphold appeal, `finalize_failure` dapat menyelesaikan slash setelah deadline.
+1. The provider is registered and has a bond.
+2. The buyer locks escrow.
+3. The provider submits work through `submit_work`.
+4. The auditor evaluates it and calls `record_verdict`.
+5. A failed verdict enters the review path.
+6. The Guardian calls `guardian_decide`.
+7. An appeal window opens when the policy and state require it.
+8. If there is no appeal, or governance upholds the appeal decision, `finalize_failure` can complete the slash after the deadline and approval requirements are satisfied.
 
-Contract menolak finalisasi jika:
+The contract rejects finalization when:
 
-- verdict ternyata passed,
-- appeal window belum berakhir,
-- order tidak berada pada state yang sesuai,
-- provider tidak memiliki reserved bond yang cukup,
-- atau approval yang diwajibkan belum terpenuhi.
+- the verdict passed,
+- the appeal window has not ended,
+- the order is not in the appropriate state,
+- the provider does not have enough reserved bond,
+- or a required approval is missing.
 
-### Distribusi slash
+### Slash distribution
 
-Pada jalur slash yang diuji di contract:
+The tested slash path uses this distribution:
 
 ```text
 70% → buyer
@@ -130,90 +130,90 @@ Pada jalur slash yang diuji di contract:
 10% → auditor reward
 ```
 
-Provider bond dikurangi sebesar `slash_amount`. Reputation provider juga menerima penalty sesuai policy. Nilai threshold, penalty, appeal window, dan minimum bond berasal dari `get_policy()`; jangan menganggap angka demo sebagai parameter universal untuk semua deployment.
+The provider's bond is reduced by `slash_amount`. Provider reputation also receives a policy-defined penalty. Thresholds, penalties, appeal windows, and minimum bond ratios come from `get_policy()`; demo values should not be treated as universal parameters for every deployment.
 
 ### SLA expiry
 
-Contract juga memiliki `refund_after_sla`. Jika SLA berakhir tanpa hasil yang diperlukan, buyer dapat menerima refund sesuai aturan contract. Jalur ini berbeda dari failed verdict slash dan pada implementasi yang diuji tidak menerapkan provider slash yang sama.
+The contract also provides `refund_after_sla`. If the SLA expires without the required result, the buyer may receive a refund according to contract rules. This is separate from failed-verdict slashing and, in the tested implementation, does not apply the same provider slash.
 
-## 6. Peran Guardian secara rinci
+## 6. The Guardian role in detail
 
-Guardian menerima kasus ketika hasil auditor membutuhkan keputusan manusia. Guardian membaca:
+The Guardian receives cases when an auditor result needs human judgment. The Guardian reviews:
 
 - confidence score,
 - verification criteria,
 - evidence,
-- alasan auditor,
-- nilai escrow dan bond yang terdampak,
-- serta kondisi appeal.
+- auditor reasoning,
+- affected escrow and bond value,
+- and appeal conditions.
 
-Guardian kemudian memilih jalur approval atau rejection. Keputusan tersebut bukan sekadar perubahan UI; transaksi harus ditandatangani wallet Guardian.
+The Guardian chooses an approval or rejection path. This is not only a UI change; the transaction must be signed by the configured Guardian wallet.
 
-### Otorisasi `get_roles()`
+### `get_roles()` authorization
 
-Contract menyediakan view method:
+The contract exposes this view method:
 
 ```text
 get_roles()
 ```
 
-View tersebut mengembalikan `owner_id`, `auditor_id`, `guardian_id`, dan governance signer. Dashboard membandingkan `guardian_id` dengan account wallet yang sedang terhubung:
+It returns `owner_id`, `auditor_id`, `guardian_id`, and the governance signer. The dashboard compares the configured `guardian_id` with the connected wallet account:
 
 ```text
 connected wallet == roles.guardian_id
 ```
 
-Status UX yang ditampilkan dashboard:
+The dashboard shows these UX states:
 
 - `Guardian wallet connected`
 - `Connect the configured Guardian wallet to decide.`
 - `Connected wallet is not the configured Guardian.`
 - `No Guardian is configured on this contract.`
 
-Role switcher hanya untuk demo/offline view. Pada live Testnet, role switcher dinonaktifkan dan tidak pernah digunakan sebagai security check. Contract tetap memvalidasi predecessor account pada setiap transaksi.
+The role switcher is only for demo/offline mode. In live Testnet mode it is disabled and never used as a security check. The contract still validates the predecessor account on every transaction.
 
-### Guardian queue live
+### Live Guardian queue
 
-Dashboard hanya menampilkan order yang benar-benar menunggu keputusan Guardian:
+The dashboard displays only orders that are actually waiting for a Guardian decision:
 
 ```text
 status == VerdictRecorded
 and guardian_approved == false
 ```
 
-Order pada `AppealWindow` atau `Appealed` tidak dianggap sebagai keputusan Guardian baru; order tersebut berada pada tahap appeal/finalization.
+Orders in `AppealWindow` or `Appealed` are not treated as new Guardian decisions; they are in the appeal/finalization stage.
 
-## 7. Penanganan sengketa dan appeal
+## 7. Dispute and appeal handling
 
 ### 7.1 Failed verdict
 
-Auditor memanggil `record_verdict` dengan `passed = false`, confidence, reasons, dan evidence. Contract menyimpan verdict dan memindahkan order ke jalur yang memerlukan approval.
+The auditor calls `record_verdict` with `passed = false`, confidence, reasons, and evidence. The contract stores the verdict and moves the order into the approval path.
 
 ### 7.2 Guardian approval
 
-Guardian memanggil `guardian_decide(id, approve)`. Jika disetujui, contract mencatat event Guardian dan membuka appeal window berdasarkan profile order dan policy.
+The Guardian calls `guardian_decide(id, approve)`. If approved, the contract records the Guardian event and opens an appeal window based on the order profile and policy.
 
-Untuk large slash atau escalated case, contract dapat membutuhkan dua approval berbeda termasuk governance. Detail kewajiban ditentukan oleh state dan policy contract, bukan oleh label pada UI.
+For a large slash or escalated case, the contract may require two distinct approvals, including governance. The exact requirement comes from the contract state and policy, not from a UI label.
 
 ### 7.3 Provider appeal
 
-Selama appeal deadline belum lewat, provider dapat memanggil:
+While the appeal deadline is open, the provider can call:
 
 ```text
 appeal(id, reason)
 ```
 
-Contract memastikan bahwa:
+The contract verifies that:
 
-- caller adalah provider order,
-- order berada pada state appeal yang valid,
-- deadline belum lewat,
-- appeal belum diselesaikan,
-- dan hasil yang sukses tidak diajukan banding sebagai failed result.
+- the caller is the order provider,
+- the order is in a valid appeal state,
+- the deadline has not passed,
+- the appeal has not already been resolved,
+- and a successful result is not being appealed as a failed result.
 
 ### 7.4 Governance resolution
 
-Governance memanggil:
+Governance calls:
 
 ```text
 resolve_appeal(id, uphold_slash)
@@ -221,9 +221,9 @@ resolve_appeal(id, uphold_slash)
 
 #### Appeal upheld
 
-`uphold_slash = true` berarti failed verdict dipertahankan. Contract mencatat `appeal_upheld`, menandai appeal resolved, dan membiarkan order masuk ke final failure settlement setelah syarat deadline/approval terpenuhi.
+`uphold_slash = true` means the failed verdict is maintained. The contract records `appeal_upheld`, marks the appeal resolved, and lets the order enter final failure settlement once the deadline and approval requirements are satisfied.
 
-Hasil yang diharapkan:
+Expected flow:
 
 ```text
 failed verdict
@@ -235,15 +235,15 @@ failed verdict
 
 #### Appeal overturned
 
-`uphold_slash = false` berarti governance membatalkan failed verdict. Contract mencatat `appeal_overturned`. Pada alur implementation Testnet yang diuji:
+`uphold_slash = false` means governance cancels the failed verdict. The contract records `appeal_overturned`. In the tested Testnet flow:
 
-- buyer escrow direfund,
-- reserved bond provider dilepas,
-- pending 10% auditor share dipindahkan ke insurance pool,
-- auditor menerima reversal penalty sesuai policy,
-- tidak ada provider slash pada jalur overturn tersebut.
+- the buyer escrow is refunded,
+- the provider's reserved bond is released,
+- the pending 10% auditor share is moved to the insurance pool,
+- the auditor receives the policy-defined reversal penalty,
+- and the provider is not slashed on this overturn path.
 
-Hasil yang diharapkan:
+Expected flow:
 
 ```text
 failed verdict
@@ -253,61 +253,61 @@ failed verdict
 → refund
 ```
 
-Nama event dan maknanya harus dibaca bersama aturan contract: `appeal_overturned` berarti failed verdict dibatalkan, bukan appeal provider ditolak.
+The event name and its contract semantics must be read together: `appeal_overturned` means the failed verdict was cancelled, not that the provider's appeal was rejected.
 
-## 8. Appeal status dan audit events
+## 8. Appeal status and audit events
 
-Status appeal yang dipakai view contract dan dashboard adalah:
+The appeal statuses exposed by the contract and dashboard are:
 
 ```text
 none | pending | upheld | overturned
 ```
 
-Dashboard menurunkan status dari urutan audit event:
+The dashboard derives status from the ordered audit events:
 
 ```text
-appeal_submitted → pending
-appeal_upheld    → upheld
-appeal_overturned→ overturned
+appeal_submitted  → pending
+appeal_upheld     → upheld
+appeal_overturned → overturned
 ```
 
-Audit event bersifat append-only secara logika aplikasi dan memuat sequence, kind, actor, order ID, timestamp, serta details. Event dapat dibaca melalui:
+Audit events are logically append-only and contain a sequence, kind, actor, order ID, timestamp, and details. They can be read through:
 
 ```text
 get_audit_events(start, limit)
 ```
 
-Legacy field `appeal_resolved` masih tersimpan untuk kompatibilitas serialized state pada deployment lama. Consumer baru tidak boleh menjadikannya satu-satunya sumber kebenaran karena historical order dapat memiliki boolean lama yang tidak selaras dengan status/event terminal. Gunakan order status dan event-derived `appeal_status`.
+The legacy `appeal_resolved` field remains serialized for compatibility with older deployments. New consumers must not use it as the only source of truth because a historical order can contain an old boolean that no longer matches its terminal state or events. Use the order status and event-derived `appeal_status`.
 
-## 9. Cara mendaftarkan agent sebagai provider
+## 9. Registering an agent as a provider
 
-### Prasyarat
+### Prerequisites
 
-- Chrome atau Brave dengan wallet NEAR yang mendukung Testnet.
-- Akun `.testnet` yang dikontrol pengguna.
-- Dashboard berjalan pada origin tetap, misalnya `http://localhost:3000/`.
-- Contract Testnet dapat dibaca.
-- Tidak ada seed phrase atau private key yang dimasukkan ke aplikasi.
+- Chrome or Brave with a NEAR Testnet wallet.
+- A `.testnet` account controlled by the user.
+- The dashboard running on a stable origin such as `http://localhost:3000/`.
+- A readable Testnet contract.
+- No seed phrase or private key entered into the application.
 
-### Langkah dashboard
+### Dashboard steps
 
-1. Jalankan dashboard dan buka Marketplace.
-2. Klik **Connect wallet**.
-3. Pilih wallet yang tersedia dan pastikan jaringan wallet adalah NEAR Testnet.
-4. Scroll ke **Provider onboarding**.
-5. Klik **Register this wallet as provider**.
-6. Review dan sign transaksi `register_provider` di wallet.
-7. Setelah state refresh, masukkan jumlah pada **Bond deposit (NEAR)**.
-8. Klik **Deposit bond** dan sign transaksi `deposit_bond`.
-9. Isi form offer:
+1. Run the dashboard and open Marketplace.
+2. Click **Connect wallet**.
+3. Select an available wallet and confirm it is on NEAR Testnet.
+4. Scroll to **Provider onboarding**.
+5. Click **Register this wallet as provider**.
+6. Review and sign `register_provider` in the wallet.
+7. After the state refreshes, enter an amount under **Bond deposit (NEAR)**.
+8. Click **Deposit bond** and sign `deposit_bond`.
+9. Complete the offer form:
    - `Service type`,
    - `Price (NEAR)`,
    - `Maximum order (NEAR)`,
    - `SLA`,
-   - `Verification criteria`, satu item per baris.
-10. Klik **Publish offer on Testnet** dan sign transaksi `create_offer`.
+   - `Verification criteria`, one item per line.
+10. Click **Publish offer on Testnet** and sign `create_offer`.
 
-Contoh criteria:
+Example criteria:
 
 ```text
 Include at least three verifiable source URLs.
@@ -315,30 +315,30 @@ Cite a source and date for every figure.
 Keep the summary consistent with the cited sources.
 ```
 
-Setelah transaksi terkonfirmasi, offer dibaca dari contract dan dapat dipilih buyer di Marketplace.
+After confirmation, the offer is read from the contract and becomes available to buyers in Marketplace.
 
-### Perhitungan minimum bond
+### Minimum bond calculation
 
-Dashboard menampilkan estimasi minimum bond berdasarkan maximum contract amount, reputation provider, dan policy bond ratio contract. Estimasi UI bukan pengganti validasi contract; contract tetap menjadi pemeriksa akhir.
+The dashboard shows an estimated minimum bond based on the maximum contract amount, provider reputation, and the contract's bond ratio policy. The UI estimate is not a replacement for contract validation; the contract remains the final authority.
 
-## 10. Operasi dan konfigurasi lokal
+## 10. Local operations and configuration
 
 ### Environment
 
-Salin template:
+Copy the template:
 
 ```bash
 cp .env.example .env
 ```
 
-Konfigurasi minimum:
+Minimum configuration:
 
 ```env
 PORT=3000
 VITE_BIL_BOND_CONTRACT_ID=newbilbondcotract.testnet
 ```
 
-Aplikasi hanya menerima contract account `.testnet`. `DATABASE_URL` disediakan oleh runtime atau environment database. Jangan menyimpan secret wallet di `.env`.
+`DATABASE_URL` is supplied by the runtime or by a database-enabled local environment. Never store wallet secrets in `.env`.
 
 ### Commands
 
@@ -352,18 +352,18 @@ pnpm db:migrate
 pnpm db:seed
 ```
 
-Contract Rust:
+Rust contract commands:
 
 ```bash
 pnpm contract:test
 pnpm contract:build
 ```
 
-### Timeout RPC
+### RPC timeout handling
 
-Pembacaan RPC dashboard memiliki timeout 8 detik. Jika Testnet RPC menggantung, UI menampilkan error yang dapat dicoba ulang dan tidak mempertahankan loading tanpa batas.
+Dashboard RPC reads have an 8-second timeout. If the Testnet RPC hangs, the UI displays a retryable error instead of keeping the loading state indefinitely.
 
-## 11. Contract views dan methods penting
+## 11. Important contract views and methods
 
 ### Read views
 
@@ -401,9 +401,9 @@ finalize_failure(id)
 refund_after_sla(id)
 ```
 
-Nama argument dan deposit aktual harus mengikuti source contract yang sedang di-deploy. Selalu review transaction payload di wallet sebelum signing.
+Method arguments and deposits must match the source contract currently deployed. Always review the transaction payload in the wallet before signing.
 
-## 12. Testnet contract dan role saat ini
+## 12. Current Testnet contract and roles
 
 ```text
 Network:    NEAR Testnet
@@ -413,42 +413,42 @@ Guardian:   majormeat1805.testnet
 Governance: governance-bilbond.testnet
 ```
 
-Testnet bersifat publik dan dapat berubah. Contract redeploy, migration, role change, atau policy change adalah operasi terpisah yang membutuhkan otorisasi account contract owner.
+Testnet is public and can change. Contract redeployment, migration, role changes, and policy changes are separate operations requiring authorization from the contract owner.
 
 ## 13. Troubleshooting
 
-### Wallet mengarah ke halaman download
+### The wallet opens a download page
 
-Buka dashboard di Chrome atau Brave yang benar-benar memiliki extension Meteor/Nightly aktif. Origin dan port harus sama; `localhost:3000` dan `localhost:5173` dianggap origin berbeda.
+Open the dashboard in Chrome or Brave where the Meteor/Nightly extension is actually enabled. The origin and port must match; `localhost:3000` and `localhost:5173` are different origins.
 
 ### `Connected wallet is not the configured Guardian`
 
-Hubungkan account yang sama dengan `guardian_id` dari `get_roles()`. Memilih role Guardian di UI tidak cukup.
+Connect the account returned as `guardian_id` by `get_roles()`. Selecting Guardian in the UI is not sufficient.
 
-### Contract tidak terbaca
+### The contract cannot be read
 
-Periksa:
+Check:
 
 - `VITE_BIL_BOND_CONTRACT_ID`,
-- contract account `.testnet`,
-- status NEAR Testnet RPC,
-- dan apakah contract benar-benar sudah diinisialisasi.
+- that the contract is a `.testnet` account,
+- NEAR Testnet RPC status,
+- and whether the contract has been initialized.
 
-Gunakan tombol **Retry** pada error banner.
+Use the **Retry** button in the error banner.
 
-### Transaksi tidak dapat ditandatangani
+### A transaction cannot be signed
 
-Pastikan wallet account memiliki role yang diperlukan, jaringan wallet adalah Testnet, dan state order masih menerima method tersebut. Smart contract dapat menolak transaksi walaupun tombol sempat aktif sebelum state berubah.
+Confirm that the connected wallet has the required role, that the wallet is on Testnet, and that the order state still accepts the method. The smart contract may reject a transaction even if a button was enabled before another state update.
 
-### Dashboard loading terlalu lama
+### The dashboard keeps loading
 
-Refresh setelah timeout 8 detik. Jangan mengulang transaksi wallet tanpa memeriksa activity wallet dan transaction hash; request UI yang timeout tidak otomatis berarti transaksi tidak pernah dibuat.
+Retry after the 8-second timeout. Do not repeat a wallet transaction without checking wallet activity and the transaction hash; a UI timeout does not automatically mean that no transaction was created.
 
-## 14. Batasan dan catatan produksi
+## 14. Limitations and production notes
 
-- Testnet bukan mainnet dan tidak boleh digunakan sebagai nilai ekonomi nyata.
-- NEAR Intents pada environment ini masih simulated/unavailable.
-- Role switching demo bukan production authorization.
-- Frontend guard bukan security boundary; contract authorization adalah pemeriksaan final.
-- Database index bersifat pendukung. State on-chain dan audit events contract adalah sumber kebenaran untuk settlement.
-- Historical deployment dapat memiliki serialized legacy fields. Consumer harus memakai derived status dan audit events.
+- Testnet is not mainnet and must not be treated as real economic value.
+- NEAR Intents is simulated/unavailable in this environment.
+- Demo role switching is not production authorization.
+- Frontend guards are not a security boundary; contract authorization is the final check.
+- The database index is auxiliary. On-chain contract state and audit events are the source of truth for settlement.
+- Historical deployments may contain serialized legacy fields. Consumers should use derived status and audit events.
