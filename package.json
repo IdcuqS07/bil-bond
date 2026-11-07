@@ -1,0 +1,49 @@
+{
+  "name": "bil-bond",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.3.4",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "dev": "tsx server/dev.ts",
+    "build": "pnpm typecheck && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "db:migrate": "tsx server/migrate.ts",
+    "db:seed": "tsx server/seed.ts",
+    "contract:test": "cargo test --manifest-path contracts/bond-vault/Cargo.toml",
+    "contract:build": "cargo build --manifest-path contracts/bond-vault/Cargo.toml --target wasm32-unknown-unknown --release"
+  },
+  "dependencies": {
+    "@near-wallet-selector/core": "^10.1.4",
+    "@near-wallet-selector/meteor-wallet": "^10.1.4",
+    "@near-wallet-selector/modal-ui": "^10.1.4",
+    "@near-wallet-selector/my-near-wallet": "^10.1.4",
+    "@near-wallet-selector/nightly": "^10.1.4",
+    "buffer": "^6.0.3",
+    "drizzle-orm": "^0.45.1",
+    "express": "^5.1.0",
+    "lucide-react": "^0.468.0",
+    "mysql2": "^3.15.3",
+    "process": "^0.11.10",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.5",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@vitejs/plugin-react": "^5.1.1",
+    "drizzle-kit": "^0.31.6",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.2",
+    "vite-plugin-node-polyfills": "^0.28.0",
+    "vitest": "^3.2.4"
+  }
+}
