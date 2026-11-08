@@ -5,6 +5,7 @@ node_modules
 dist
 contracts/bond-vault/target
 pnpm-workspace.yaml
+pnpm-lock.yaml
 .env
 .env.*
 !.env.example
