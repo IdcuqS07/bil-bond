@@ -1,20 +1,40 @@
-import express from "express";
-import { apiRouter } from "../server/api.js";
+type VercelRequest = {
+  method?: string;
+  url?: string;
+};
 
-const app = express();
+type VercelResponse = {
+  status: (code: number) => VercelResponse;
+  setHeader: (name: string, value: string) => VercelResponse;
+  json: (body: unknown) => void;
+};
 
-app.disable("x-powered-by");
-app.use(express.json({ limit: "32kb" }));
+function json(response: VercelResponse, status: number, body: unknown): void {
+  response.status(status).setHeader("Cache-Control", "no-store").json(body);
+}
 
-// Vercel routes /api/* to this catch-all function. Express receives the
-// original /api prefix, while the shared router is defined from /health.
-app.use((request, _response, next) => {
-  if (request.url === "/api" || request.url.startsWith("/api/")) {
-    request.url = request.url.slice(4) || "/";
+export default function handler(request: VercelRequest, response: VercelResponse): void {
+  const path = request.url?.split("?")[0] ?? "/api";
+  const route = path.replace(/^\/api/, "") || "/";
+
+  if (request.method === "GET" && route === "/health") {
+    const databaseConfigured = Boolean(process.env.DATABASE_URL);
+    json(response, databaseConfigured ? 200 : 503, {
+      status: databaseConfigured ? "ok" : "degraded",
+      database: databaseConfigured ? "configured" : "not configured",
+      network: "testnet",
+      persistence: databaseConfigured ? "ready to verify" : "disabled until DATABASE_URL is configured",
+    });
+    return;
   }
-  next();
-});
 
-app.use(apiRouter);
+  if (route === "/transactions/confirm") {
+    json(response, 503, {
+      error: "Persistence is not configured on this Vercel deployment. Add DATABASE_URL to enable transaction indexing.",
+      network: "testnet",
+    });
+    return;
+  }
 
-export default app;
+  json(response, 404, { error: "API route not found." });
+}
