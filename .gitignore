@@ -9,3 +9,5 @@ dist/
 contracts/bond-vault/target/
 *.log
 coverage/
+.vercel
+.env*.local

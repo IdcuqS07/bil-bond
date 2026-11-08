@@ -1,0 +1,12 @@
+node_modules
+.git
+.vercel
+.work
+dist
+contracts/bond-vault/target
+.env
+.env.*
+!.env.example
+coverage
+*.log
+.DS_Store
