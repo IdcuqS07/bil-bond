@@ -447,7 +447,7 @@ Retry after the 8-second timeout. Do not repeat a wallet transaction without che
 ## 14. Limitations and production notes
 
 - Testnet is not mainnet and must not be treated as real economic value.
-- NEAR Intents is simulated/unavailable in this environment.
+- NEAR Intents is not used in this Testnet flow. Bil Bond bond and escrow operations use direct wallet-signed calls to the Bond Vault contract; their values and events are public on-chain.
 - Demo role switching is not production authorization.
 - Frontend guards are not a security boundary; contract authorization is the final check.
 - The database index is auxiliary. On-chain contract state and audit events are the source of truth for settlement.

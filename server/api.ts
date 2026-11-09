@@ -73,7 +73,7 @@ apiRouter.get("/dashboard", async (_request, response, next) => {
         pendingReviews: orderRows.filter((order) => ["work_submitted", "under_review"].includes(order.status)).length,
         pendingApprovals: orderRows.filter((order) => order.status === "appeal_window").length,
         publicLedgerNotice: "Testnet contract values and events are publicly visible on-chain.",
-        intentsStatus: "simulated",
+        intentsStatus: "not_used",
       },
       providers: providerViews,
       offers: offerRows.map((offer) => ({

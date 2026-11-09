@@ -54,7 +54,7 @@ Buyer locks escrow ──► Provider submits work
   - Guardian: `majormeat1805.testnet`
   - Governance: `governance-bilbond.testnet`
 - **Local dashboard:** `http://localhost:3000/` or the port printed by the dev server
-- **NEAR Intents:** simulated/unavailable on this Testnet configuration
+- **NEAR Intents:** not used in this Testnet flow; bond and escrow use direct contract calls
 
 All values and transactions above are public on Testnet. Never put a seed phrase or private key in the project.
 

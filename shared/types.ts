@@ -26,7 +26,7 @@ export interface DashboardSummary {
   pendingReviews: number;
   pendingApprovals: number;
   publicLedgerNotice: string;
-  intentsStatus: "simulated";
+  intentsStatus: "not_used";
 }
 
 export interface ProviderView {
