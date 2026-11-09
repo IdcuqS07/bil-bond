@@ -6,6 +6,7 @@ dist
 contracts/bond-vault/target
 pnpm-workspace.yaml
 pnpm-lock.yaml
+api
 .env
 .env.*
 !.env.example
